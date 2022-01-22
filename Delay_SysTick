@@ -1,0 +1,40 @@
+
+/*-----------------------------------------------------------------------------
+Moduł konfiguracji opóźnienia za pomocą SysTick'a
+-----------------------------------------------------------------------------*/
+volatile uint32_t ticks;
+void SysTick_Handler(void) { 							
+	ticks++;
+}
+uint32_t micros (void)
+{
+   return ticks;
+}
+
+void systickInit (uint32_t frequency)  // Ustawianie SysTicka, aby sygnalizował przerwanie co określony czas
+{
+
+	(void) SysTick_Config (SystemCoreClock / frequency); // SysTick zlicza do określonej liczby taktów. Gdyby : SysTick_Config (SystemCoreClock ) to przerwanie co 1s.
+}
+
+void delay_us (uint32_t t)
+{
+	systickInit(1000000);	 //INICJALIZACJA SysTick'a - przerwanie co 1us.
+  uint32_t start, end;
+  start = micros();
+  end = start + t;
+  if (start < end) { 
+  	while ((micros() >= start) && (micros() < end)) { 
+  	  // do nothing 
+  	} 
+  } else { 
+    while ((micros() >= start) || (micros() < end)) {
+      // do nothing
+    };
+  }
+	// Wyłączenie SysTicka i jego przerwania
+	SysTick->CTRL  &= ~(SysTick_CTRL_CLKSOURCE_Msk |
+                   SysTick_CTRL_TICKINT_Msk   |
+                   SysTick_CTRL_ENABLE_Msk);  
+	
+}
