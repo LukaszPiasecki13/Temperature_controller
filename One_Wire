@@ -1,0 +1,144 @@
+/*-------------------------------------------------------------------------
+					Technika Mikroprocesorowa 2 - projekt
+					Temat: Sterownik akwarytyczny
+					autor: Łukasz Piasecki, Patryk Grzywnowicz
+----------------------------------------------------------------------------*/
+					
+#include "MKL05Z4.h"
+#include "ADC.h"
+#include "frdm_bsp.h"
+#include "lcd1602.h"
+#include "ds18b20.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "uart0.h"
+
+
+#define DS 7
+
+typedef enum 
+{
+  HAL_OK       = 0x00U,
+  HAL_ERROR    = 0x01U,
+  HAL_BUSY     = 0x02U,
+  HAL_TIMEOUT  = 0x03U
+} HAL_StatusTypeDef;
+typedef enum
+{
+  GPIO_PIN_RESET = 0,
+  GPIO_PIN_SET
+}GPIO_PinState;
+
+
+
+uint8_t rom_code[8];
+
+
+/*-----------------------------------------------------------------------------
+Moduł konfiguracji OneWire'a
+-----------------------------------------------------------------------------*/
+GPIO_PinState GPIO_ReadPin(uint16_t GPIO_Pin)
+{
+  GPIO_PinState bitstatus;
+
+  if( (PTB->PDIR & (1<<GPIO_Pin))  != 0)
+  {
+    bitstatus = GPIO_PIN_SET;
+  }
+  else
+  {
+    bitstatus = GPIO_PIN_RESET;
+  }
+  return bitstatus;
+}
+
+
+
+HAL_StatusTypeDef wire_reset(void)
+{
+  int rc;
+	PTB->PDOR&=~(1<<DS); // kasowanie bitu
+  delay_us(480);
+  PTB->PDOR|=(1<<DS); // ustawianie bitu
+  delay_us(70);
+  rc = GPIO_ReadPin(DS);
+  delay_us(410);
+
+  if (rc == 0)
+    return HAL_OK;
+  else
+    return HAL_ERROR;
+
+}
+
+
+void write_bit(int value)
+{
+  if (value) {
+    PTB->PDOR&=~(1<<DS); /* kasowanie bitu*/
+    delay_us(6);
+    PTB->PDOR|=(1<<DS); /* ustawianie bitu*/
+    delay_us(64);
+  } else {
+    PTB->PDOR&=~(1<<DS); /* kasowanie bitu*/
+    delay_us(60);
+    PTB->PDOR|=(1<<DS); /* ustawianie bitu*/
+    delay_us(10);
+  }
+}
+
+int read_bit(void)
+{
+  int rc;
+  PTB->PDOR&=~(1<<DS); /* kasowanie bitu*/
+  delay_us(6);
+  PTB->PDOR|=(1<<DS); /* ustawianie bitu*/
+  delay_us(9);
+  rc = GPIO_ReadPin(DS);
+  delay_us(55);
+  return rc;
+}
+	
+
+void wire_write(uint8_t byte)
+{
+  int i;
+  for (i = 0; i < 8; i++) {
+    write_bit(byte & 0x01);
+    byte >>= 1;
+  }
+}
+ 
+uint8_t wire_read(void)
+{
+  uint8_t value = 0;
+  int i;
+  for (i = 0; i < 8; i++) {
+    value >>= 1;
+    if (read_bit())
+      value |= 0x80;
+  }
+  return value;
+}
+
+
+int main (void)
+{
+	//INICJALIZACJA DIÓD SYGNALIZUJĄCYCH TEMPERATURĘ
+	SIM->SCGC5 |= SIM_SCGC5_PORTB_MASK; /* Enable clóck fór GPIO B */
+  PTB->PDDR |= (1<<DS); /* Set pin 7 óf GPIO B as óutput */	
+	
+	
+	HAL_StatusTypeDef rc = wire_reset();
+	wire_write(0x33);
+ 
+	int i;
+		for (i = 0; i < 8; i++)
+		rom_code[i] = wire_read();
+	
+	while(1)					//GŁOWNA PĘTLA PROGRAMU
+	{
+		
+	}
+}
